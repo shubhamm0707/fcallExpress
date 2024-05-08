@@ -1,38 +1,60 @@
-const http = require('http');
-const express = require('express');
-const data = require('./data.json');
-const cors = require('cors');
+const http = require("http");
+const express = require("express");
+const data = require("./data.json");
+const cors = require("cors");
 
 const app = express();
-app.use(express.json());
-app.use (cors());
+const server = http.createServer(app);
 
-let timer = 0;
+// app.use(express.json());
+app.use(cors()); // Apply CORS middleware to the Express app
+
+let duration = 0;
 let url = "";
 let query = "";
 let groupID = "...";
 let isPlay = false;
 
-app.get('/', (req, res) => {
-    if(req.query['groupID'] === groupID) {
-        console.log("yes");
-        return res.send({timer, url, isPlay});
-    } else {
-        console.log(req.query);
-        console.log(groupID);
-    };
-})
+var extensionCode = "code";
 
+const io = require("socket.io")(server, {
+  cors: {
+    origin: "*",
+  },
+});
 
-app.post('/', (req, res) => {
-    timer = req.body.key;
-    url = req.body.url;
-    groupID = req.body.groupID;
-    isPlay = req.body.isPlay;
-    console.log(req.body);
-    res.sendStatus(200); // something like this does!
-})
+io.on("connection", (socket) => {
+  console.log("a user connected");
 
-app.listen (8000, () => {
-  console.log('Server running on port 8004');  
-})
+  // Send the data to the client
+
+  socket.on("message", (data) => {
+    duration = data["key"];
+    url = data["url"];
+    groupID = data["groupID"];
+    isPlay = data["isPlay"];
+    console.log(
+      `message: ' + ${
+        duration + "   " + url + "   " + groupID + "   " + isPlay
+      }`
+    );
+    io.emit("message", {
+      timer: duration,
+      url: url,
+      isPlay: isPlay,
+      extensionCode: extensionCode
+    });
+  });
+
+  socket.on("htmlCode", (data) => {
+    extensionCode = data["extensionCode"];
+    console.log(extensionCode);
+  });
+
+});
+
+io.on("disconnect", (socket) => {
+  console.log("user disconnected");
+});
+
+server.listen(8000, () => console.log("listening on *:3000"));
